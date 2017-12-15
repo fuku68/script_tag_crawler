@@ -22,13 +22,14 @@ def parser():
 
 # LinkParser
 class LinkParser(hp.HTMLParser):
-    def __init__(self, regex):
+    def __init__(self, regex, domain):
         hp.HTMLParser.__init__(self)
         self.url = ""
         self.links = []
         self.embedded = False
         self.regex = regex
         self.a_count = 0
+        self.domain = domain
 
     def feed(self, page):
         self.links = []
@@ -51,6 +52,8 @@ class LinkParser(hp.HTMLParser):
                   self.embedded = True
               
     def handle_endtag(self, tag): # 開始・終了タグに囲まれた中身の処理
+        if tag == "a" and self.url and self.url.startswith('/'):
+            self.links.append('https://' + self.domain + self.url)
         if tag == "a" and self.url and re.match('^http', self.url): # 先頭がhttpであるか判定
             self.links.append(self.url)
 
@@ -79,14 +82,18 @@ def crawl_web(seed, regex, max_deepth = 3):
     crawled = []
     match_pages = []
     non_match_pages = []
-    parser = LinkParser(regex)
-    deepth = 0
     domain = urlparse(seed).netloc
+    parser = LinkParser(regex, domain)
+    deepth = 0
 
     while deepth < max_deepth:
         while tocrawl:
             page = tocrawl.pop()
-            if page not in crawled and urlparse(page).netloc == domain:
+            # 画像、pdfへのリンクは除外
+            if page.endswith('.png') or page.endswith('.jpg') orpage.endswith('.pdf'):
+              continue
+
+            if page not in crawled and (page.startswith('/') or  urlparse(page).netloc == domain):
                 print(page)
                 parser.feed(get_page(page))
                 if parser.embedded == True:
@@ -107,6 +114,6 @@ def crawl_web(seed, regex, max_deepth = 3):
 if __name__ == '__main__':
     result = parser()
     print(result)
-    crawl_web(result.url, result.pattern or 'analytics.fs-bdash.com', result.deepth or 3)
+    crawl_web(result.url, result.pattern or 'cdn.activity.bdash-cloud.com', result.deepth or 3)
 
 #crawl_web('https://f-scratch.co.jp/', 'analytics.fs-bdash.com')
